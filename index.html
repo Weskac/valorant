@@ -514,8 +514,14 @@
                     // Create New Room
                     const newRoomData = {
                         roomId: currentRoomId,
-                        teamA: { name: teamAName, connected: true },
-                        teamB: { name: teamBName, connected: true },
+                        teamA: { 
+                            name: teamAName, 
+                            connected: myRole === 'teamA' 
+                        },
+                        teamB: { 
+                            name: teamBName, 
+                            connected: myRole === 'teamB' 
+                        },
                         format: format,
                         mapPool: DEFAULT_MAPS.map(m => m.name),
                         history: [],
@@ -528,14 +534,23 @@
                     await window.vetoFirebase.setDoc(docRef, newRoomData);
                     roomData = newRoomData;
                 } else {
-                    // Fetch existing room
+                    // Fetch existing room & update current team status
                     roomData = snap.data();
-                    if (myRole === 'teamA') roomData.teamA.connected = true;
-                    if (myRole === 'teamB') roomData.teamB.connected = true;
-                    await window.vetoFirebase.updateDoc(docRef, {
-                        'teamA.connected': roomData.teamA ? true : true,
-                        'teamB.connected': roomData.teamB ? true : true
-                    });
+                    const updates = {};
+
+                    if (myRole === 'teamA') {
+                        updates['teamA.connected'] = true;
+                        if (teamAName && teamAName !== 'Tým A') updates['teamA.name'] = teamAName;
+                        if (roomData.teamA) roomData.teamA.connected = true;
+                    } else if (myRole === 'teamB') {
+                        updates['teamB.connected'] = true;
+                        if (teamBName && teamBName !== 'Tým B') updates['teamB.name'] = teamBName;
+                        if (roomData.teamB) roomData.teamB.connected = true;
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        await window.vetoFirebase.updateDoc(docRef, updates);
+                    }
                 }
 
                 // Subscribe to real-time updates
@@ -564,8 +579,14 @@
             if (!roomData || roomData.roomId !== currentRoomId) {
                 roomData = {
                     roomId: currentRoomId,
-                    teamA: { name: document.getElementById('inputTeamAName').value || 'Tým A', connected: true },
-                    teamB: { name: document.getElementById('inputTeamBName').value || 'Tým B', connected: true },
+                    teamA: { 
+                        name: document.getElementById('inputTeamAName').value || 'Tým A', 
+                        connected: myRole === 'teamA' 
+                    },
+                    teamB: { 
+                        name: document.getElementById('inputTeamBName').value || 'Tým B', 
+                        connected: myRole === 'teamB' 
+                    },
                     format: document.getElementById('selectFormat').value || 'BO1',
                     mapPool: DEFAULT_MAPS.map(m => m.name),
                     history: [],
@@ -619,8 +640,16 @@
             document.getElementById('formatBadge').innerText = 'FORMAT: 1x DECIDER';
 
             // Connection dots
-            document.getElementById('statusTeamA').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen`;
-            document.getElementById('statusTeamB').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen`;
+            const isTeamAConnected = roomData.teamA && roomData.teamA.connected;
+            const isTeamBConnected = roomData.teamB && roomData.teamB.connected;
+
+            document.getElementById('statusTeamA').innerHTML = isTeamAConnected 
+                ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen`
+                : `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Čekání na připojení`;
+
+            document.getElementById('statusTeamB').innerHTML = isTeamBConnected 
+                ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen`
+                : `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Čekání na připojení`;
 
             const sequence = getVetoSequence(roomData.format);
             const stepIdx = roomData.history ? roomData.history.length : 0;
