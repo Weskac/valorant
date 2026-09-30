@@ -10,9 +10,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@600;700&family=Teko:wght@600;700&display=swap" rel="stylesheet">
     
-    <!-- Lucide Icons & Tailwind CSS -->
+    <!-- Lucide Icons, Tailwind CSS & PeerJS for zero-config Internet P2P -->
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -101,7 +102,6 @@
             100% { box-shadow: 0 0 35px rgba(255, 70, 85, 0.8); border-color: rgba(255, 70, 85, 0.9); }
         }
 
-        /* Toast notifications */
         .toast-notification {
             animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
@@ -152,14 +152,14 @@
 
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-8 py-4 space-y-6">
 
-        <!-- Lobby / Join Room View -->
+        <!-- Lobby Screen -->
         <div id="lobbyScreen" class="glass-panel rounded-3xl p-8 max-w-xl mx-auto my-12 text-center space-y-6 animate-in fade-in duration-300">
             <div class="w-16 h-16 bg-valRed/20 text-valRed rounded-3xl mx-auto flex items-center justify-center border border-valRed/40 shadow-xl shadow-valRed/20">
                 <i data-lucide="swords" class="w-8 h-8"></i>
             </div>
             <div>
                 <h2 class="text-3xl font-valorant tracking-wider text-white">VSTOUPIT DO VETO MÍSTNOSTI</h2>
-                <p class="text-xs text-slate-400 font-sans mt-1">Zadejte kód místnosti pro živé banování map s druhým týmem v reálném čase.</p>
+                <p class="text-xs text-slate-400 font-sans mt-1">Zadejte kód místnosti pro živé banování map s druhým týmem v reálném čase přes internet.</p>
             </div>
 
             <div class="space-y-4 text-left font-sans">
@@ -316,7 +316,7 @@
                 <i data-lucide="share-2" class="w-6 h-6"></i>
             </div>
             <h3 class="text-xl font-valorant tracking-wider text-white">POZVÁNKA PRO SOUPERA</h3>
-            <p class="text-xs text-slate-400 font-sans">Pošlete tento odkaz druhému týmu. Po otevření odkazu se automaticky připojí jako <strong>Tým 2 (B)</strong>.</p>
+            <p class="text-xs text-slate-400 font-sans">Pošlete tento odkaz druhému týmu. Po otevření odkazu se automaticky připojí jako <strong>Tým 2 (B)</strong> přes přímé P2P spojení.</p>
 
             <div class="bg-slate-950/90 border border-white/10 rounded-2xl p-3 text-left space-y-1">
                 <span class="text-[10px] font-mono uppercase text-slate-500 block">Odkaz do Místnosti:</span>
@@ -338,7 +338,7 @@
     <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
 
     <footer class="mt-8 py-6 text-center text-xs text-slate-500 font-sans border-t border-white/5">
-        <p>VALORANT Realtime Map Veto &bull; Multi-tab Sync & Firebase Live Engine</p>
+        <p>VALORANT Realtime Map Veto &bull; PeerJS Internet P2P & Multi-tab Sync Engine</p>
     </footer>
 
     <script type="module">
@@ -357,24 +357,13 @@
             firebaseConfig = MY_CUSTOM_FIREBASE_CONFIG;
         }
 
-        if (!firebaseConfig) {
-            firebaseConfig = {
-                apiKey: "AIzaSyDemoKeyForValorantVetoApp123456",
-                authDomain: "valorant-veto-demo.firebaseapp.com",
-                projectId: "valorant-veto-demo",
-                storageBucket: "valorant-veto-demo.appspot.com",
-                messagingSenderId: "1234567890",
-                appId: "1:1234567890:web:abcdef123456"
-            };
-        }
-
         let app, db, auth;
-        try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch(e) {
-            console.warn("Firebase Init fallback:", e);
+        if (firebaseConfig) {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch(e) {}
         }
 
         window.vetoFirebase = {
@@ -409,7 +398,13 @@
         let myRole = 'teamA';
         let roomUnsubscribe = null;
         let roomData = null;
-        let roomChannel = null; // BroadcastChannel for instantaneous local tab sync
+        let roomChannel = null; // BroadcastChannel for local tabs
+
+        // PeerJS state for zero-config Internet P2P syncing
+        let peerInstance = null;
+        let peerConn = null;
+        let isHost = false;
+        let activeClients = [];
 
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
@@ -486,7 +481,6 @@
             }
         }
 
-        // BroadcastChannel & LocalStorage listener for multi-tab support
         function listenToLocalTabSync() {
             if (roomChannel) {
                 try { roomChannel.close(); } catch(e){}
@@ -502,7 +496,7 @@
             } catch(e) {}
         }
 
-        function saveAndBroadcastRoomData() {
+        function saveAndBroadcastRoomData(broadcastP2P = true) {
             if (!roomData || !currentRoomId) return;
             try {
                 localStorage.setItem(`valorant_veto_${currentRoomId}`, JSON.stringify(roomData));
@@ -510,6 +504,118 @@
                     roomChannel.postMessage(roomData);
                 }
             } catch(e) {}
+
+            if (broadcastP2P && isHost) {
+                broadcastP2PState();
+            }
+        }
+
+        function initP2P() {
+            if (peerInstance) {
+                try { peerInstance.destroy(); } catch(e){}
+            }
+            activeClients = [];
+            
+            const sanitizeId = currentRoomId.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const hostPeerId = `vv-room-${sanitizeId}-host`;
+
+            if (myRole === 'teamA') {
+                // Host creates Peer with fixed room ID
+                isHost = true;
+                peerInstance = new Peer(hostPeerId);
+
+                peerInstance.on('open', (id) => {
+                    showToast('P2P Host vytvořen pro spojení přes internet', 'success');
+                });
+
+                peerInstance.on('connection', (conn) => {
+                    activeClients.push(conn);
+
+                    conn.on('open', () => {
+                        conn.send({ type: 'SYNC_STATE', roomData: roomData });
+                    });
+
+                    conn.on('data', (data) => {
+                        handleP2PIncomingMessage(data, conn);
+                    });
+
+                    conn.on('close', () => {
+                        activeClients = activeClients.filter(c => c !== conn);
+                    });
+                });
+
+                peerInstance.on('error', (err) => {
+                    if (err.type === 'unavailable-id') {
+                        // Host ID already exists, fallback to client mode
+                        isHost = false;
+                        connectAsP2PClient(hostPeerId);
+                    }
+                });
+
+            } else {
+                // Team B or Spectator connects to Host
+                isHost = false;
+                connectAsP2PClient(hostPeerId);
+            }
+        }
+
+        function connectAsP2PClient(hostPeerId) {
+            peerInstance = new Peer();
+
+            peerInstance.on('open', (id) => {
+                peerConn = peerInstance.connect(hostPeerId, { reliable: true });
+
+                peerConn.on('open', () => {
+                    showToast('Připojeno k soupeři přes internet!', 'success');
+                    peerConn.send({
+                        type: 'JOIN',
+                        role: myRole,
+                        teamName: myRole === 'teamB' ? document.getElementById('inputTeamBName').value : 'Tým A'
+                    });
+                });
+
+                peerConn.on('data', (data) => {
+                    handleP2PIncomingMessage(data, peerConn);
+                });
+
+                peerConn.on('close', () => {
+                    showToast('P2P spojení se soupeřem bylo přerušeno', 'warn');
+                });
+            });
+
+            peerInstance.on('error', (err) => {});
+        }
+
+        function handleP2PIncomingMessage(data, conn) {
+            if (!data) return;
+
+            if (data.type === 'SYNC_STATE' && data.roomData) {
+                roomData = data.roomData;
+                saveAndBroadcastRoomData(false);
+                renderVetoState();
+            } else if (data.type === 'JOIN' && isHost) {
+                if (data.role === 'teamB') {
+                    roomData.teamB.connected = true;
+                    if (data.teamName) roomData.teamB.name = data.teamName;
+                } else if (data.role === 'teamA') {
+                    roomData.teamA.connected = true;
+                }
+                saveAndBroadcastRoomData(true);
+                renderVetoState();
+            } else if (data.type === 'ACTION' && isHost) {
+                executeMapAction(data.mapName, data.turnInfo, true);
+            }
+        }
+
+        function broadcastP2PState() {
+            if (!isHost || !activeClients.length) return;
+            activeClients.forEach(conn => {
+                if (conn && conn.open) {
+                    try {
+                        conn.send({ type: 'SYNC_STATE', roomData: roomData });
+                    } catch(e){}
+                }
+            });
         }
 
         async function connectToVetoRoom() {
@@ -534,7 +640,6 @@
             const teamAName = document.getElementById('inputTeamAName').value.trim() || 'Tým A';
             const teamBName = document.getElementById('inputTeamBName').value.trim() || 'Tým B';
 
-            // Check if local room state exists in this browser session first
             const localStored = localStorage.getItem(`valorant_veto_${currentRoomId}`);
             if (localStored) {
                 try { roomData = JSON.parse(localStored); } catch(e){}
@@ -560,7 +665,6 @@
                     status: 'in_progress'
                 };
             } else {
-                // Update current user role connection
                 if (myRole === 'teamA') {
                     roomData.teamA.connected = true;
                     if (teamAName && teamAName !== 'Tým A') roomData.teamA.name = teamAName;
@@ -571,59 +675,59 @@
             }
 
             saveAndBroadcastRoomData();
+            initP2P();
 
-            // Connect to Cloud Firestore
+            // Connect to Cloud Firestore if initialized
             try {
-                const user = await window.vetoFirebase.signIn();
-                if (user && window.vetoFirebase.db) {
-                    const docRef = window.vetoFirebase.doc(
-                        window.vetoFirebase.db, 
-                        'artifacts', 
-                        window.vetoFirebase.appId, 
-                        'public', 
-                        'data', 
-                        'mapVetoRooms', 
-                        currentRoomId
-                    );
+                if (window.vetoFirebase && window.vetoFirebase.db) {
+                    const user = await window.vetoFirebase.signIn();
+                    if (user) {
+                        const docRef = window.vetoFirebase.doc(
+                            window.vetoFirebase.db, 
+                            'artifacts', 
+                            window.vetoFirebase.appId, 
+                            'public', 
+                            'data', 
+                            'mapVetoRooms', 
+                            currentRoomId
+                        );
 
-                    const snap = await window.vetoFirebase.getDoc(docRef);
+                        const snap = await window.vetoFirebase.getDoc(docRef);
 
-                    if (!snap.exists()) {
-                        await window.vetoFirebase.setDoc(docRef, roomData);
-                    } else {
-                        const existing = snap.data();
-                        const updates = {};
+                        if (!snap.exists()) {
+                            await window.vetoFirebase.setDoc(docRef, roomData);
+                        } else {
+                            const existing = snap.data();
+                            const updates = {};
 
-                        if (myRole === 'teamA') {
-                            updates['teamA.connected'] = true;
-                            if (teamAName && teamAName !== 'Tým A') updates['teamA.name'] = teamAName;
-                            roomData.teamA.connected = true;
-                        } else if (myRole === 'teamB') {
-                            updates['teamB.connected'] = true;
-                            if (teamBName && teamBName !== 'Tým B') updates['teamB.name'] = teamBName;
-                            roomData.teamB.connected = true;
+                            if (myRole === 'teamA') {
+                                updates['teamA.connected'] = true;
+                                if (teamAName && teamAName !== 'Tým A') updates['teamA.name'] = teamAName;
+                                roomData.teamA.connected = true;
+                            } else if (myRole === 'teamB') {
+                                updates['teamB.connected'] = true;
+                                if (teamBName && teamBName !== 'Tým B') updates['teamB.name'] = teamBName;
+                                roomData.teamB.connected = true;
+                            }
+
+                            if (existing.teamA && existing.teamA.connected) roomData.teamA.connected = true;
+                            if (existing.teamB && existing.teamB.connected) roomData.teamB.connected = true;
+
+                            if (Object.keys(updates).length > 0) {
+                                await window.vetoFirebase.updateDoc(docRef, updates);
+                            }
                         }
 
-                        // Sync connected state from cloud if existing team A/B was already connected
-                        if (existing.teamA && existing.teamA.connected) roomData.teamA.connected = true;
-                        if (existing.teamB && existing.teamB.connected) roomData.teamB.connected = true;
+                        saveAndBroadcastRoomData();
 
-                        if (Object.keys(updates).length > 0) {
-                            await window.vetoFirebase.updateDoc(docRef, updates);
-                        }
+                        roomUnsubscribe = window.vetoFirebase.onSnapshot(docRef, (docSnap) => {
+                            if (docSnap.exists()) {
+                                roomData = docSnap.data();
+                                saveAndBroadcastRoomData(false);
+                                renderVetoState();
+                            }
+                        }, (err) => {});
                     }
-
-                    saveAndBroadcastRoomData();
-
-                    // Listen to Firestore changes
-                    roomUnsubscribe = window.vetoFirebase.onSnapshot(docRef, (docSnap) => {
-                        if (docSnap.exists()) {
-                            const cloudData = docSnap.data();
-                            roomData = cloudData;
-                            saveAndBroadcastRoomData();
-                            renderVetoState();
-                        }
-                    }, (err) => {});
                 }
             } catch(e) {}
 
@@ -787,8 +891,13 @@
             if (window.lucide) lucide.createIcons();
         }
 
-        async function executeMapAction(mapName, turnInfo) {
+        async function executeMapAction(mapName, turnInfo, isRemoteAction = false) {
             if (!roomData || !turnInfo) return;
+
+            // If client sends action to host over P2P
+            if (!isHost && !isRemoteAction && peerConn && peerConn.open) {
+                peerConn.send({ type: 'ACTION', mapName: mapName, turnInfo: turnInfo });
+            }
 
             const actionType = turnInfo.action;
             const teamKey = turnInfo.team;
@@ -827,7 +936,7 @@
             };
 
             Object.assign(roomData, updatedData);
-            saveAndBroadcastRoomData();
+            saveAndBroadcastRoomData(true);
             renderVetoState();
 
             try {
@@ -893,7 +1002,7 @@
             };
 
             Object.assign(roomData, updatedData);
-            saveAndBroadcastRoomData();
+            saveAndBroadcastRoomData(true);
             renderVetoState();
 
             try {
@@ -942,6 +1051,10 @@
             if (roomChannel) {
                 try { roomChannel.close(); } catch(e){}
                 roomChannel = null;
+            }
+            if (peerInstance) {
+                try { peerInstance.destroy(); } catch(e){}
+                peerInstance = null;
             }
             currentRoomId = null;
             document.getElementById('vetoScreen').classList.add('hidden');
