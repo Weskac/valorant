@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="cs" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALORANT Map Veto - Realtime Glass Edition</title>
+    
+    <!-- Fonts: Inter, Rajdhani & Teko for Esport look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@600;700&family=Teko:wght@600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons & Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        valRed: '#FF4655',
+                        valRedGlow: 'rgba(255, 70, 85, 0.4)',
+                        valGold: '#FFD700',
+                        glassBg: 'rgba(15, 22, 32, 0.75)',
+                        glassCard: 'rgba(28, 38, 54, 0.6)',
+                        glassBorder: 'rgba(255, 255, 255, 0.12)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'sans-serif'],
+                        valorant: ['Teko', 'sans-serif'],
+                        rajdhani: ['Rajdhani', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0b0f17;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(255, 70, 85, 0.18) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(0, 150, 255, 0.12) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 60%);
+            background-attachment: fixed;
+            color: #f1f5f9;
+            font-family: 'Inter', -apple-system, sans-serif;
+            user-select: none;
+        }
+
+        .glass-panel {
+            background: rgba(18, 25, 38, 0.7);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+        }
+
+        .glass-card {
+            background: rgba(28, 38, 54, 0.55);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card-interactive:hover {
+            background: rgba(40, 55, 78, 0.75);
+            border-color: rgba(255, 70, 85, 0.6);
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 16px 35px rgba(0, 0, 0, 0.5), 0 0 25px rgba(255, 70, 85, 0.3);
+        }
+
+        .banned-card {
+            filter: grayscale(90%) brightness(0.4);
+            border-color: rgba(239, 68, 68, 0.5) !important;
+            transform: scale(0.96);
+            opacity: 0.6;
+        }
+
+        .picked-card {
+            border-color: #34d399 !important;
+            box-shadow: 0 0 30px rgba(52, 211, 153, 0.4) !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+        }
+
+        .decider-card {
+            border-color: #FFD700 !important;
+            box-shadow: 0 0 35px rgba(255, 215, 0, 0.5) !important;
+            background: rgba(255, 215, 0, 0.18) !important;
+        }
+
+        .turn-active {
+            animation: pulseGlow 1.8s infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { box-shadow: 0 0 15px rgba(255, 70, 85, 0.3); border-color: rgba(255, 70, 85, 0.4); }
+            100% { box-shadow: 0 0 35px rgba(255, 70, 85, 0.8); border-color: rgba(255, 70, 85, 0.9); }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 70, 85, 0.5);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-valRed selection:text-white">
+
+    <header class="sticky top-0 z-40 p-4">
+        <div class="max-w-7xl mx-auto glass-panel rounded-3xl px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+            <!-- Branding -->
+            <div class="flex items-center gap-3.5 w-full sm:w-auto justify-between sm:justify-start">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-valRed to-rose-700 rounded-2xl flex items-center justify-center p-2 shadow-lg shadow-valRed/30">
+                        <svg viewBox="0 0 100 100" fill="currentColor" class="w-full h-full text-white">
+                            <path d="M99.25 18.5a.75.75 0 00-.75-.75H73.3a.75.75 0 00-.7.49L54.1 63.63a.75.75 0 00.7.1h20.5a.75.75 0 00.7-.49l23.25-44.74zM45.9 18.5a.75.75 0 00-.7-.49H24.7a.75.75 0 00-.7.49L.75 63.24a.75.75 0 00.7 1.01h20.5a.75.75 0 00.7-.49L45.9 18.5z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] uppercase font-bold tracking-widest text-valRed font-rajdhani bg-valRed/15 px-2 py-0.5 rounded-full border border-valRed/30">LIVE MAP VETO</span>
+                            <span id="roomCodeDisplay" class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30">KÓD: -</span>
+                        </div>
+                        <h1 class="text-xl sm:text-2xl font-valorant tracking-wider uppercase text-white leading-none mt-0.5">VALORANT MAP POOL VETO</h1>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Room Share & Role Status -->
+            <div id="topControls" class="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <div id="roleBadge" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/60 border border-white/10 text-xs text-slate-300 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-slate-400" id="roleDot"></span>
+                    <span id="roleText">Role: Divák</span>
+                </div>
+                <button onclick="copyRoomLink()" class="px-4 py-2 bg-slate-800/80 hover:bg-valRed text-white rounded-xl border border-white/10 transition text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                    <i data-lucide="share-2" class="w-4 h-4 text-valRed"></i> SDÍLET KÓD
+                </button>
+                <button onclick="leaveRoom()" class="p-2 bg-slate-800/80 hover:bg-rose-950 text-slate-300 hover:text-rose-300 rounded-xl border border-white/10 transition text-xs" title="Opustit Místnost">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-8 py-4 space-y-6">
+
+        <!-- Lobby / Join Room View (Default Visible if no Room joined) -->
+        <div id="lobbyScreen" class="glass-panel rounded-3xl p-8 max-w-xl mx-auto my-12 text-center space-y-6 animate-in fade-in duration-300">
+            <div class="w-16 h-16 bg-valRed/20 text-valRed rounded-3xl mx-auto flex items-center justify-center border border-valRed/40 shadow-xl shadow-valRed/20">
+                <i data-lucide="swords" class="w-8 h-8"></i>
+            </div>
+            <div>
+                <h2 class="text-3xl font-valorant tracking-wider text-white">VSTOUPIT DO VETO MÍSTNOSTI</h2>
+                <p class="text-xs text-slate-400 font-sans mt-1">Zadejte kód místnosti pro živé banování map s druhým týmem v reálném čase.</p>
+            </div>
+
+            <div class="space-y-4 text-left font-sans">
+                <div>
+                    <label class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Kód Místnosti (Lobby ID)</label>
+                    <input type="text" id="inputRoomId" placeholder="např. FINALS2026" class="w-full bg-slate-950/80 border border-white/15 rounded-2xl px-4 py-3 text-white text-sm font-mono focus:outline-none focus:border-valRed uppercase tracking-wider">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Vyberte Vaši Roli</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setJoinRole('teamA')" id="roleBtn-teamA" class="role-select-btn p-3 rounded-2xl border border-white/10 bg-slate-900/60 hover:bg-valRed/20 text-xs font-semibold text-center transition">
+                            <i data-lucide="shield" class="w-5 h-5 mx-auto mb-1 text-valRed"></i>
+                            Tým 1 (A)
+                        </button>
+                        <button onclick="setJoinRole('teamB')" id="roleBtn-teamB" class="role-select-btn p-3 rounded-2xl border border-white/10 bg-slate-900/60 hover:bg-blue-500/20 text-xs font-semibold text-center transition">
+                            <i data-lucide="shield-alert" class="w-5 h-5 mx-auto mb-1 text-blue-400"></i>
+                            Tým 2 (B)
+                        </button>
+                        <button onclick="setJoinRole('spectator')" id="roleBtn-spectator" class="role-select-btn p-3 rounded-2xl border border-valRed/60 bg-valRed/20 text-white text-xs font-semibold text-center transition">
+                            <i data-lucide="eye" class="w-5 h-5 mx-auto mb-1 text-amber-400"></i>
+                            Divák
+                        </button>
+                    </div>
+                </div>
+
+                <div id="teamNameFields" class="grid grid-cols-2 gap-3 pt-2">
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Týmu A</label>
+                        <input type="text" id="inputTeamAName" value="Tým A" class="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Týmu B</label>
+                        <input type="text" id="inputTeamBName" value="Tým B" class="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Format Zápasu (Zamčeno)</label>
+                    <div class="w-full bg-slate-950/80 border border-white/15 rounded-2xl px-4 py-3 text-xs text-amber-400 font-mono flex items-center justify-between">
+                        <span class="flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 text-amber-400"></i> Best of 1 &bull; 6x Ban, 1x Decider</span>
+                        <span class="text-[10px] text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-white/5">ZAMČENO</span>
+                    </div>
+                    <input type="hidden" id="selectFormat" value="BO1">
+                </div>
+            </div>
+
+            <button onclick="connectToVetoRoom()" class="w-full py-3.5 bg-gradient-to-r from-valRed to-rose-600 hover:from-rose-600 hover:to-valRed text-white font-valorant text-xl tracking-wider uppercase rounded-2xl shadow-xl shadow-valRed/30 transition transform hover:-translate-y-0.5">
+                PŘIPOJIT SE DO VETO MÍSTNOSTI
+            </button>
+        </div>
+
+        <!-- Live Veto Interface (Hidden until room is active) -->
+        <div id="vetoScreen" class="hidden space-y-6 animate-in fade-in duration-300">
+            
+            <!-- Teams Banner & Turn Indicator -->
+            <div class="glass-panel rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+                
+                <!-- Team A -->
+                <div id="bannerTeamA" class="flex items-center gap-4 w-full md:w-auto p-4 rounded-2xl transition border border-transparent">
+                    <div class="w-12 h-12 rounded-2xl bg-valRed/20 border border-valRed/50 flex items-center justify-center text-valRed font-valorant text-2xl font-bold">
+                        A
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-mono uppercase tracking-widest text-valRed font-bold">TÝM 1 (HOST)</div>
+                        <div id="displayTeamAName" class="text-2xl font-valorant tracking-wider text-white">Tým A</div>
+                        <div id="statusTeamA" class="text-xs text-slate-400 flex items-center gap-1 font-mono">
+                            <span class="w-2 h-2 rounded-full bg-slate-500"></span> Čekání na připojení
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Central Status & Turn Info -->
+                <div class="text-center px-6 py-3 rounded-2xl bg-slate-950/60 border border-white/10 w-full md:w-auto max-w-sm">
+                    <div id="formatBadge" class="text-[10px] uppercase font-mono tracking-widest text-amber-400 font-bold bg-amber-400/10 px-3 py-0.5 rounded-full inline-block mb-1 border border-amber-400/30">
+                        FORMAT: 1x DECIDER
+                    </div>
+                    <div id="turnMainStatus" class="text-xl font-valorant tracking-wider text-white mt-1">
+                        NAČÍTÁNÍ VETO...
+                    </div>
+                    <div id="turnSubStatus" class="text-xs text-slate-400 font-mono mt-0.5">
+                        Probíhá synchronizace se serverem
+                    </div>
+                </div>
+
+                <!-- Team B -->
+                <div id="bannerTeamB" class="flex items-center gap-4 w-full md:w-auto p-4 rounded-2xl transition border border-transparent flex-row-reverse md:flex-row text-right md:text-left">
+                    <div>
+                        <div class="text-[10px] font-mono uppercase tracking-widest text-blue-400 font-bold">TÝM 2 (GUEST)</div>
+                        <div id="displayTeamBName" class="text-2xl font-valorant tracking-wider text-white">Tým B</div>
+                        <div id="statusTeamB" class="text-xs text-slate-400 flex items-center justify-center md:justify-start gap-1 font-mono">
+                            <span class="w-2 h-2 rounded-full bg-slate-500"></span> Čekání na připojení
+                        </div>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/50 flex items-center justify-center text-blue-400 font-valorant text-2xl font-bold">
+                        B
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Active Map Pool Grid -->
+            <div>
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h3 class="text-xs font-mono uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <i data-lucide="map" class="w-4 h-4 text-valRed"></i> MAP POOL PRO TURNAN (KLIKNĚTE PRO BAN / PICK)
+                    </h3>
+                    <span id="mapPoolCount" class="text-xs font-mono text-slate-400">7 Map v Poolu</span>
+                </div>
+
+                <div id="mapGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <!-- Map cards will be rendered dynamically -->
+                </div>
+            </div>
+
+            <!-- Live Veto Activity Log & Results -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Live Veto Sequence History -->
+                <div class="lg:col-span-2 glass-panel rounded-3xl p-5 border border-white/10 space-y-3">
+                    <h4 class="text-xs font-mono uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                        <i data-lucide="history" class="w-4 h-4 text-valRed"></i> PRŮBĚH VETO (HISTORIE KROKŮ)
+                    </h4>
+                    <div id="vetoHistoryList" class="flex flex-wrap gap-2 min-h-[50px] items-center text-xs font-mono">
+                        <span class="text-slate-500 italic">Veto ještě nezačalo.</span>
+                    </div>
+                </div>
+
+                <!-- Final Map Picked Result -->
+                <div class="glass-panel rounded-3xl p-5 border border-white/10 space-y-3 flex flex-col justify-between">
+                    <div>
+                        <h4 class="text-xs font-mono uppercase tracking-widest text-amber-400 flex items-center gap-2 font-bold">
+                            <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> VYBRANÉ MAPY
+                        </h4>
+                        <div id="finalSelectedMaps" class="mt-3 space-y-2 font-mono text-xs">
+                            <div class="text-slate-500 italic">O vybraných mapách se rozhodne po dokončení Veta.</div>
+                        </div>
+                    </div>
+
+                    <button onclick="resetVetoSession()" id="resetBtn" class="w-full py-2 bg-slate-800 hover:bg-valRed text-slate-300 hover:text-white rounded-xl border border-white/10 text-xs font-semibold transition mt-4 hidden">
+                        RESTARTOVAT VETO
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="mt-8 py-6 text-center text-xs text-slate-500 font-sans border-t border-white/5">
+        <p>VALORANT Realtime Map Veto &bull; Powered by Firebase Firestore & Valorant API</p>
+    </footer>
+
+    <!-- Firebase Module Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // PRO FUNKČNOST MEZI 2 RŮZNÝMI LIDI NA GITHUB PAGES VLOŽTE SŮJ FIREBASE KLÍČ
+        // ZÍSKÁTE ZDARMA NA: https://console.firebase.google.com
+        // =========================================================================
+        const MY_CUSTOM_FIREBASE_CONFIG = {
+            // apiKey: "VASE_API_KEY",
+            // authDomain: "VAS-PROJEKT.firebaseapp.com",
+            // projectId: "VAS-PROJEKT",
+            // storageBucket: "VAS-PROJEKT.appspot.com",
+            // messagingSenderId: "123456789",
+            // appId: "1:123456789:web:abcdef"
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'valorant-veto-app';
+        let firebaseConfig = null;
+
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try { firebaseConfig = JSON.parse(__firebase_config); } catch(e){}
+        } else if (MY_CUSTOM_FIREBASE_CONFIG.apiKey) {
+            firebaseConfig = MY_CUSTOM_FIREBASE_CONFIG;
+        }
+
+        // Fallback Firebase Config for testing
+        if (!firebaseConfig) {
+            firebaseConfig = {
+                apiKey: "AIzaSyDemoKeyForValorantVetoApp123456",
+                authDomain: "valorant-veto-demo.firebaseapp.com",
+                projectId: "valorant-veto-demo",
+                storageBucket: "valorant-veto-demo.appspot.com",
+                messagingSenderId: "1234567890",
+                appId: "1:1234567890:web:abcdef123456"
+            };
+        }
+
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch(e) {
+            console.warn("Firebase Init fallback:", e);
+        }
+
+        // Expose Firebase tools to global window
+        window.vetoFirebase = {
+            db, auth, appId, doc, getDoc, setDoc, updateDoc, onSnapshot,
+            signIn: async () => {
+                if (!auth) return null;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                return auth.currentUser;
+            }
+        };
+    </script>
+
+    <!-- Main Logic Script -->
+    <script>
+        // Default Valorant Active Map Pool
+        const DEFAULT_MAPS = [
+            { name: 'Ascent', displayName: 'Ascent' },
+            { name: 'Bind', displayName: 'Bind' },
+            { name: 'Haven', displayName: 'Haven' },
+            { name: 'Lotus', displayName: 'Lotus' },
+            { name: 'Sunset', displayName: 'Sunset' },
+            { name: 'Abyss', displayName: 'Abyss' },
+            { name: 'Split', displayName: 'Split' }
+        ];
+
+        let valorantMapImages = {};
+        let currentRoomId = null;
+        let myRole = 'spectator'; // 'teamA', 'teamB', 'spectator'
+        let roomUnsubscribe = null;
+        let roomData = null;
+
+        // Audio Effects Synthesizer (Web Audio API)
+        function playSound(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                if (type === 'ban') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.25);
+                } else if (type === 'pick') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.3);
+                }
+            } catch(e) {}
+        }
+
+        // Fetch Official Valorant Map Assets from API
+        async function fetchMapAssets() {
+            try {
+                const res = await fetch('https://valorant-api.com/v1/maps');
+                if (res.ok) {
+                    const json = await res.json();
+                    json.data.forEach(m => {
+                        if (m.displayName) {
+                            valorantMapImages[m.displayName.toLowerCase()] = m.splash || m.displayIcon;
+                        }
+                    });
+                }
+            } catch(e) {
+                console.warn("Map API error, using placeholders.", e);
+            }
+        }
+
+        function getMapImage(mapName) {
+            const key = mapName ? mapName.trim().toLowerCase() : '';
+            if (valorantMapImages[key]) return valorantMapImages[key];
+            return `https://placehold.co/600x337/1e293b/ff4655?text=${encodeURIComponent(mapName)}`;
+        }
+
+        function setJoinRole(role) {
+            myRole = role;
+            document.querySelectorAll('.role-select-btn').forEach(btn => {
+                btn.classList.remove('border-valRed', 'bg-valRed/30', 'text-white');
+                btn.classList.add('border-white/10', 'bg-slate-900/60');
+            });
+            const activeBtn = document.getElementById(`roleBtn-${role}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('border-white/10', 'bg-slate-900/60');
+                activeBtn.classList.add('border-valRed', 'bg-valRed/30', 'text-white');
+            }
+        }
+
+        async function connectToVetoRoom() {
+            const roomInput = document.getElementById('inputRoomId').value.trim().toUpperCase();
+            if (!roomInput) {
+                alert('Prosím zadejte kód místnosti.');
+                return;
+            }
+
+            currentRoomId = roomInput;
+
+            // Update UI Header
+            document.getElementById('roomCodeDisplay').innerText = `KÓD: ${currentRoomId}`;
+            updateRoleBadge();
+
+            // Firebase Auth and Firestore Connection
+            try {
+                const user = await window.vetoFirebase.signIn();
+                if (!user) {
+                    initLocalRoomFallback();
+                    return;
+                }
+
+                const docRef = window.vetoFirebase.doc(
+                    window.vetoFirebase.db, 
+                    'artifacts', 
+                    window.vetoFirebase.appId, 
+                    'public', 
+                    'data', 
+                    'mapVetoRooms', 
+                    currentRoomId
+                );
+
+                const snap = await window.vetoFirebase.getDoc(docRef);
+
+                const teamAName = document.getElementById('inputTeamAName').value.trim() || 'Tým A';
+                const teamBName = document.getElementById('inputTeamBName').value.trim() || 'Tým B';
+                const format = document.getElementById('selectFormat').value || 'BO1';
+
+                if (!snap.exists()) {
+                    // Create New Room
+                    const newRoomData = {
+                        roomId: currentRoomId,
+                        teamA: { name: teamAName, connected: myRole === 'teamA' },
+                        teamB: { name: teamBName, connected: myRole === 'teamB' },
+                        format: format,
+                        mapPool: DEFAULT_MAPS.map(m => m.name),
+                        history: [],
+                        bannedMaps: [],
+                        pickedMaps: [],
+                        deciderMap: null,
+                        status: 'in_progress',
+                        currentStepIndex: 0
+                    };
+                    await window.vetoFirebase.setDoc(docRef, newRoomData);
+                } else {
+                    // Update connected state for role
+                    const data = snap.data();
+                    if (myRole === 'teamA') data.teamA.connected = true;
+                    if (myRole === 'teamB') data.teamB.connected = true;
+                    await window.vetoFirebase.updateDoc(docRef, {
+                        'teamA.connected': data.teamA.connected,
+                        'teamB.connected': data.teamB.connected
+                    });
+                }
+
+                // Subscribe to real-time updates
+                if (roomUnsubscribe) roomUnsubscribe();
+                roomUnsubscribe = window.vetoFirebase.onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        roomData = docSnap.data();
+                        renderVetoState();
+                    }
+                }, (err) => console.error("Firestore Listener error:", err));
+
+            } catch(e) {
+                console.warn("Firestore error, switching to browser local sync:", e);
+                initLocalRoomFallback();
+            }
+
+            document.getElementById('lobbyScreen').classList.add('hidden');
+            document.getElementById('vetoScreen').classList.remove('hidden');
+        }
+
+        // Fallback for offline or local preview
+        function initLocalRoomFallback() {
+            roomData = {
+                roomId: currentRoomId,
+                teamA: { name: document.getElementById('inputTeamAName').value || 'Tým A', connected: true },
+                teamB: { name: document.getElementById('inputTeamBName').value || 'Tým B', connected: true },
+                format: document.getElementById('selectFormat').value || 'BO1',
+                mapPool: DEFAULT_MAPS.map(m => m.name),
+                history: [],
+                bannedMaps: [],
+                pickedMaps: [],
+                deciderMap: null,
+                status: 'in_progress',
+                currentStepIndex: 0
+            };
+            renderVetoState();
+        }
+
+        function updateRoleBadge() {
+            const roleBadge = document.getElementById('roleBadge');
+            const roleDot = document.getElementById('roleDot');
+            const roleText = document.getElementById('roleText');
+
+            roleBadge.classList.remove('hidden');
+            if (myRole === 'teamA') {
+                roleDot.className = 'w-2 h-2 rounded-full bg-valRed animate-pulse';
+                roleText.innerText = 'Role: Tým A (Host)';
+            } else if (myRole === 'teamB') {
+                roleDot.className = 'w-2 h-2 rounded-full bg-blue-400 animate-pulse';
+                roleText.innerText = 'Role: Tým B (Guest)';
+            } else {
+                roleDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                roleText.innerText = 'Role: Divák / Caster';
+            }
+        }
+
+        function getVetoSequence(format) {
+            if (format === 'BO1') {
+                return [
+                    { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
+                    { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' },
+                    { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
+                    { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' },
+                    { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
+                    { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' }
+                ];
+            } else { // BO3
+                return [
+                    { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
+                    { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' },
+                    { team: 'teamA', action: 'pick', label: 'PICK MAPA 1 (Tým A)' },
+                    { team: 'teamB', action: 'pick', label: 'PICK MAPA 2 (Tým B)' },
+                    { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
+                    { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' }
+                ];
+            }
+        }
+
+        function renderVetoState() {
+            if (!roomData) return;
+
+            // Teams info
+            document.getElementById('displayTeamAName').innerText = roomData.teamA.name;
+            document.getElementById('displayTeamBName').innerText = roomData.teamB.name;
+            document.getElementById('formatBadge').innerText = 'FORMAT: 1x DECIDER';
+
+            // Connection dots
+            document.getElementById('statusTeamA').innerHTML = roomData.teamA.connected 
+                ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen` 
+                : `<span class="w-2 h-2 rounded-full bg-slate-500"></span> Čekání`;
+            document.getElementById('statusTeamB').innerHTML = roomData.teamB.connected 
+                ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen` 
+                : `<span class="w-2 h-2 rounded-full bg-slate-500"></span> Čekání`;
+
+            const sequence = getVetoSequence(roomData.format);
+            const stepIdx = roomData.history.length;
+
+            const bannerA = document.getElementById('bannerTeamA');
+            const bannerB = document.getElementById('bannerTeamB');
+            bannerA.className = "flex items-center gap-4 w-full md:w-auto p-4 rounded-2xl transition border border-transparent";
+            bannerB.className = "flex items-center gap-4 w-full md:w-auto p-4 rounded-2xl transition border border-transparent flex-row-reverse md:flex-row text-right md:text-left";
+
+            let isMyTurn = false;
+            let currentTurnInfo = null;
+
+            if (stepIdx < sequence.length) {
+                currentTurnInfo = sequence[stepIdx];
+                const activeTeamName = currentTurnInfo.team === 'teamA' ? roomData.teamA.name : roomData.teamB.name;
+                const actionText = currentTurnInfo.action === 'ban' ? 'ZAKAZUJE (BAN)' : 'VYBÍRÁ (PICK)';
+                
+                document.getElementById('turnMainStatus').innerText = `${activeTeamName} ${actionText}`;
+                document.getElementById('turnSubStatus').innerText = `Krok ${stepIdx + 1} z ${sequence.length + 1}`;
+
+                if (currentTurnInfo.team === 'teamA') {
+                    bannerA.classList.add('turn-active', 'bg-valRed/10');
+                } else {
+                    bannerB.classList.add('turn-active', 'bg-blue-500/10');
+                }
+
+                if (myRole === currentTurnInfo.team) {
+                    isMyTurn = true;
+                }
+            } else {
+                // Veto complete
+                document.getElementById('turnMainStatus').innerText = 'VETO DOKONČENO!';
+                document.getElementById('turnSubStatus').innerText = 'Všechny mapy byly vybrány.';
+                document.getElementById('resetBtn').classList.remove('hidden');
+            }
+
+            // Render Map Cards
+            renderMapGrid(isMyTurn, currentTurnInfo);
+
+            // Render History
+            renderHistoryLog();
+
+            // Render Results
+            renderFinalOutcome();
+        }
+
+        function renderMapGrid(isMyTurn, currentTurnInfo) {
+            const grid = document.getElementById('mapGrid');
+            grid.innerHTML = '';
+
+            roomData.mapPool.forEach(mapName => {
+                const isBanned = roomData.bannedMaps.includes(mapName);
+                const isPicked = roomData.pickedMaps.includes(mapName);
+                const isDecider = roomData.deciderMap === mapName;
+                const mapImg = getMapImage(mapName);
+
+                let cardClasses = 'glass-card rounded-2xl p-4 relative overflow-hidden flex flex-col justify-between h-48 border transition duration-200 ';
+
+                if (isBanned) {
+                    cardClasses += 'banned-card ';
+                } else if (isPicked) {
+                    cardClasses += 'picked-card ';
+                } else if (isDecider) {
+                    cardClasses += 'decider-card ';
+                } else if (isMyTurn) {
+                    cardClasses += 'glass-card-interactive cursor-pointer border-white/20 hover:border-valRed ';
+                } else {
+                    cardClasses += 'border-white/10 opacity-90 ';
+                }
+
+                const card = document.createElement('div');
+                card.className = cardClasses;
+                card.style.backgroundImage = `linear-gradient(to top, rgba(11, 15, 23, 0.95), rgba(11, 15, 23, 0.2)), url('${mapImg}')`;
+                card.style.backgroundSize = 'cover';
+                card.style.backgroundPosition = 'center';
+
+                if (isMyTurn && !isBanned && !isPicked && !isDecider) {
+                    card.onclick = () => executeMapAction(mapName, currentTurnInfo);
+                }
+
+                let badgeHTML = '';
+                if (isBanned) {
+                    badgeHTML = `<span class="bg-rose-950/80 text-rose-400 border border-rose-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> BANNED</span>`;
+                } else if (isPicked) {
+                    badgeHTML = `<span class="bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> PICKED</span>`;
+                } else if (isDecider) {
+                    badgeHTML = `<span class="bg-amber-950/80 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1"><i data-lucide="crown" class="w-3.5 h-3.5"></i> DECIDER</span>`;
+                } else {
+                    badgeHTML = `<span class="bg-slate-900/80 text-slate-300 border border-white/10 px-2.5 py-0.5 rounded-lg text-[10px] font-mono">K DISPOZICI</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start z-10">
+                        ${badgeHTML}
+                    </div>
+
+                    <div class="z-10">
+                        <h4 class="text-2xl font-valorant tracking-wider text-white uppercase drop-shadow-md">${mapName}</h4>
+                        ${isMyTurn && !isBanned && !isPicked && !isDecider ? 
+                            `<p class="text-[10px] font-mono text-valRed font-bold animate-pulse">Klikněte pro ${currentTurnInfo.action.toUpperCase()}</p>` : ''}
+                    </div>
+                `;
+
+                grid.appendChild(card);
+            });
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function executeMapAction(mapName, turnInfo) {
+            if (!roomData || !turnInfo) return;
+
+            const actionType = turnInfo.action;
+            const teamKey = turnInfo.team;
+            const teamName = teamKey === 'teamA' ? roomData.teamA.name : roomData.teamB.name;
+
+            playSound(actionType);
+
+            const newHistory = [...roomData.history, {
+                step: roomData.history.length + 1,
+                team: teamKey,
+                teamName: teamName,
+                action: actionType,
+                map: mapName
+            }];
+
+            let banned = [...roomData.bannedMaps];
+            let picked = [...roomData.pickedMaps];
+
+            if (actionType === 'ban') banned.push(mapName);
+            if (actionType === 'pick') picked.push(mapName);
+
+            // Check if only 1 map remains -> Decider
+            const sequence = getVetoSequence(roomData.format);
+            let decider = roomData.deciderMap;
+
+            if (newHistory.length >= sequence.length) {
+                const remaining = roomData.mapPool.filter(m => !banned.includes(m) && !picked.includes(m));
+                if (remaining.length === 1) {
+                    decider = remaining[0];
+                }
+            }
+
+            const updatedData = {
+                history: newHistory,
+                bannedMaps: banned,
+                pickedMaps: picked,
+                deciderMap: decider
+            };
+
+            // Firestore update
+            try {
+                if (window.vetoFirebase.db) {
+                    const docRef = window.vetoFirebase.doc(
+                        window.vetoFirebase.db, 
+                        'artifacts', 
+                        window.vetoFirebase.appId, 
+                        'public', 
+                        'data', 
+                        'mapVetoRooms', 
+                        currentRoomId
+                    );
+                    await window.vetoFirebase.updateDoc(docRef, updatedData);
+                } else {
+                    Object.assign(roomData, updatedData);
+                    renderVetoState();
+                }
+            } catch(e) {
+                Object.assign(roomData, updatedData);
+                renderVetoState();
+            }
+        }
+
+        function renderHistoryLog() {
+            const list = document.getElementById('vetoHistoryList');
+            if (!roomData.history || roomData.history.length === 0) {
+                list.innerHTML = `<span class="text-slate-500 italic">Veto zatím nezačalo.</span>`;
+                return;
+            }
+
+            list.innerHTML = roomData.history.map(item => {
+                const isBan = item.action === 'ban';
+                const bg = isBan 
+                    ? 'bg-rose-950/60 text-rose-300 border-rose-500/30' 
+                    : 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30';
+
+                return `
+                    <div class="px-3 py-1.5 rounded-xl border ${bg} flex items-center gap-1.5">
+                        <span class="font-bold">${item.step}. ${item.teamName}:</span>
+                        <span class="uppercase">${item.action}</span>
+                        <strong class="text-white">${item.map}</strong>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderFinalOutcome() {
+            const container = document.getElementById('finalSelectedMaps');
+            
+            if (roomData.format === 'BO1') {
+                if (roomData.deciderMap) {
+                    container.innerHTML = `
+                        <div class="p-3 bg-amber-500/20 border border-amber-500/40 rounded-2xl flex items-center justify-between text-amber-300">
+                            <div>
+                                <span class="text-[10px] font-mono block text-amber-400 font-bold uppercase">Hraná Mapa (BO1)</span>
+                                <span class="text-xl font-valorant tracking-wider text-white">${roomData.deciderMap}</span>
+                            </div>
+                            <i data-lucide="swords" class="w-6 h-6 text-amber-400"></i>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = `<div class="text-slate-500 italic">O vybrané mapě se rozhoduje...</div>`;
+                }
+            } else { // BO3
+                let html = '';
+                if (roomData.pickedMaps[0]) {
+                    html += `
+                        <div class="p-2.5 bg-emerald-950/50 border border-emerald-500/30 rounded-xl flex justify-between items-center text-emerald-300">
+                            <span>1. MAPA: <strong>${roomData.pickedMaps[0]}</strong></span>
+                            <span class="text-[10px] text-slate-400">Pick ${roomData.teamA.name}</span>
+                        </div>
+                    `;
+                }
+                if (roomData.pickedMaps[1]) {
+                    html += `
+                        <div class="p-2.5 bg-emerald-950/50 border border-emerald-500/30 rounded-xl flex justify-between items-center text-emerald-300">
+                            <span>2. MAPA: <strong>${roomData.pickedMaps[1]}</strong></span>
+                            <span class="text-[10px] text-slate-400">Pick ${roomData.teamB.name}</span>
+                        </div>
+                    `;
+                }
+                if (roomData.deciderMap) {
+                    html += `
+                        <div class="p-2.5 bg-amber-950/50 border border-amber-500/30 rounded-xl flex justify-between items-center text-amber-300">
+                            <span>3. DECIDER: <strong>${roomData.deciderMap}</strong></span>
+                            <span class="text-[10px] text-amber-400">Rozhodující mapa</span>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html || `<div class="text-slate-500 italic">O vybraných mapách se rozhoduje...</div>`;
+            }
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function resetVetoSession() {
+            if (!confirm('Opravdu chcete restartovat veto místnost?')) return;
+            
+            const updatedData = {
+                history: [],
+                bannedMaps: [],
+                pickedMaps: [],
+                deciderMap: null
+            };
+
+            try {
+                if (window.vetoFirebase.db) {
+                    const docRef = window.vetoFirebase.doc(
+                        window.vetoFirebase.db, 
+                        'artifacts', 
+                        window.vetoFirebase.appId, 
+                        'public', 
+                        'data', 
+                        'mapVetoRooms', 
+                        currentRoomId
+                    );
+                    await window.vetoFirebase.updateDoc(docRef, updatedData);
+                } else {
+                    Object.assign(roomData, updatedData);
+                    renderVetoState();
+                }
+            } catch(e) {
+                Object.assign(roomData, updatedData);
+                renderVetoState();
+            }
+        }
+
+        function copyRoomLink() {
+            const code = currentRoomId || document.getElementById('inputRoomId').value || 'ROOM1';
+            navigator.clipboard.writeText(window.location.origin + window.location.pathname + '?room=' + code);
+            alert(`Kód místnosti (${code}) byl zkopírován do schránky!`);
+        }
+
+        function leaveRoom() {
+            if (roomUnsubscribe) roomUnsubscribe();
+            currentRoomId = null;
+            document.getElementById('vetoScreen').classList.add('hidden');
+            document.getElementById('lobbyScreen').classList.remove('hidden');
+        }
+
+        // Auto load room from URL query parameter ?room=XYZ
+        window.onload = function() {
+            fetchMapAssets();
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomParam = urlParams.get('room');
+            if (roomParam) {
+                document.getElementById('inputRoomId').value = roomParam;
+            }
+        };
+    </script>
+</body>
+</html>
