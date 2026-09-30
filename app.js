@@ -140,9 +140,32 @@ function showResult(){
 
 function createPeer(id){
   return new Promise((resolve,reject)=>{
-    state.peer=new Peer(id);
-    state.peer.on("open",()=>resolve());
-    state.peer.on("error",reject);
+    let settled=false;
+    const finish=(fn,value)=>{ if(!settled){ settled=true; clearTimeout(timer); fn(value); } };
+    const options={
+      host:"0.peerjs.com",
+      port:443,
+      path:"/",
+      secure:true,
+      debug:2,
+      config:{
+        iceServers:[
+          {urls:"stun:stun.l.google.com:19302"},
+          {urls:"stun:stun.cloudflare.com:3478"}
+        ]
+      }
+    };
+    state.peer=id ? new Peer(id,options) : new Peer(options);
+    const timer=setTimeout(()=>finish(reject,new Error("Timeout při připojování k PeerServeru.")),12000);
+    state.peer.on("open",()=>finish(resolve));
+    state.peer.on("error",err=>{
+      console.error("PeerJS error:",err);
+      if(err.type==="unavailable-id") finish(reject,new Error("Room už existuje. Vytvoř nový room."));
+      else if(err.type==="peer-unavailable") finish(reject,new Error("Room nebyl nalezen. Zkontroluj kód."));
+      else if(err.type==="network" || err.type==="server-error" || err.type==="socket-error") finish(reject,new Error("Nelze se připojit k PeerJS serveru. Zkontroluj internet nebo firewall."));
+      else finish(reject,err);
+    });
+    state.peer.on("disconnected",()=>setStatus("Signalizační server odpojen","wait"));
     state.peer.on("connection",conn=>{
       if(state.isHost){
         state.conn=conn;
@@ -153,6 +176,11 @@ function createPeer(id){
 }
 function wireConnection(conn){
   state.conn=conn;
+  conn.on("error",err=>{
+    console.error("DataConnection error:",err);
+    setStatus("Chyba spojení","error");
+    toast("Spojení se nepodařilo navázat.");
+  });
   conn.on("open",()=>{
     setStatus("Připojeno","ok");
     if(state.isHost){
@@ -185,24 +213,47 @@ async function createRoom(){
     await createPeer("veto-"+code);
     $("roomCodeLabel").textContent=code; $("copyBtn").disabled=false;
     showGame(); applyState(); setStatus("Room vytvořen • čeká se","wait");
-  }catch(e){toast("Room se nepodařilo vytvořit."); console.error(e);}
+  }catch(e){
+    setStatus("Room se nepodařilo vytvořit","error");
+    toast(e.message||"Room se nepodařilo vytvořit.");
+    console.error(e);
+  }
 }
 async function joinRoom(){
   const name=$("playerName").value.trim()||"Player 2";
   const code=$("roomCodeInput").value.trim().toUpperCase();
   if(!code){toast("Zadej kód roomu.");return;}
   state.playerName=name; state.isHost=false; state.room=code;
+  setStatus("Připojování…","wait");
   try{
     await createPeer();
-    const conn=state.peer.connect("veto-"+code,{reliable:true});
-    wireConnection(conn);
+    const conn=state.peer.connect("veto-"+code,{reliable:true,serialization:"json"});
+    let opened=false;
+    const timeout=setTimeout(()=>{
+      if(!opened){
+        try{conn.close();}catch{}
+        setStatus("Room nenalezen","error");
+        toast("Room nebyl nalezen. Zkontroluj kód a zda Player 1 stále čeká.");
+      }
+    },10000);
     conn.on("open",()=>{
+      opened=true; clearTimeout(timeout);
       conn.send({type:"hello",name});
       setStatus("Připojeno","ok");
       $("roomCodeLabel").textContent=code; $("copyBtn").disabled=false;
       showGame(); applyState();
     });
-  }catch(e){toast("Room nebyl nalezen nebo připojení selhalo."); console.error(e);}
+    conn.on("error",err=>{
+      console.error("Join connection error:",err);
+      clearTimeout(timeout);
+      setStatus("Chyba připojení","error");
+      toast(err.type==="peer-unavailable" ? "Room nebyl nalezen." : "Spojení selhalo. Zkus to znovu.");
+    });
+  }catch(e){
+    console.error(e);
+    setStatus("Připojení selhalo","error");
+    toast(e.message||"Room se nepodařilo otevřít.");
+  }
 }
 
 function resetVeto(send=true){

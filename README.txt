@@ -1,51 +1,25 @@
-# VALORANT Map Veto — 2 hráči, bez PHP
+VALORANT MAP VETO – GitHub Pages
 
-Hotová stránka používá:
-- HTML + CSS + JavaScript
-- PeerJS/WebRTC pro spojení dvou počítačů přes internet (různé Wi‑Fi jsou v pořádku)
-- Valorant-API pro obrázky/názvy map
-- žádný PHP server ani vlastní databáze
+Tato verze je upravena pro dva počítače přes internet.
+Nepotřebuje PHP ani vlastní backend. Realtime signalizaci zajišťuje PeerJS Cloud a samotná data veto se posílají přes WebRTC.
 
-## Spuštění
+GITHUB PAGES
+1. Nahraj všechny 4 soubory do repository.
+2. Settings -> Pages -> Deploy from branch -> main -> /(root).
+3. Otevři HTTPS adresu GitHub Pages.
 
-Nejjednodušší:
-1. Rozbal ZIP.
-2. Spusť `index.html` přes lokální webový server (doporučeno).
-   - VS Code + Live Server, nebo
-   - `python -m http.server 8000`
-3. Otevři `http://localhost:8000`.
-4. Player 1 klikne na **Vytvořit room**.
-5. Druhý hráč zadá stejný kód a klikne **Připojit se**.
-6. Po připojení se veto synchronizuje přes WebRTC.
+POUŽITÍ
+Player 1:
+- zadej jméno
+- Vytvořit room
+- pošli kód druhému hráči
 
-> Pro dvě různá zařízení nepoužívej `file:///.../index.html`; použij webserver/hosting.
+Player 2:
+- zadej jméno
+- zadej kód
+- Připojit se
 
-## Pool
+Pokud se spojení nepodaří, stránka nyní zobrazí konkrétní chybu místo tichého selhání.
 
-V `app.js` je nahoře:
-`const MAP_POOL = ["Abyss", "Ascent", "Haven", "Lotus", "Split", "Summit", "Sunset"];`
-
-Stačí tento seznam změnit, pokud Riot pool později změní.
-
-## Jak funguje veto
-
-- Player 1 ban
-- Player 2 ban
-- Player 1 ban
-- Player 2 ban
-- Player 1 ban
-- Player 2 ban
-- poslední mapa = vybraná mapa
-
-## Obrázky map
-
-`app.js` volá:
-`https://valorant-api.com/v1/maps?language=en-US`
-
-A z API používá `splash`/`displayIcon`.
-
-VALORANT API je komunitní veřejné API; Riot zároveň poskytuje vlastní veřejný Content Catalog. Před veřejným nasazením zkontroluj aktuální Riot Developer Policy a podmínky použití assetů.
-
-## Poznámka k WebRTC
-
-PeerJS zajišťuje signalizaci přes veřejný PeerServer a samotný datový přenos je WebRTC. U některých restriktivních firemních/síťových firewallů může být přímé spojení blokované. Pro běžné domácí Wi‑Fi by měl tento model fungovat.
+POZNÁMKA
+PeerJS používá signalizační server pro nalezení druhého klienta; samotná data pak tečou přes WebRTC. U některých sítí může být potřeba TURN relay kvůli NAT/firewallu.
