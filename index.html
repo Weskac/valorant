@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VALORANT Map Veto - Realtime Glass Edition</title>
+    <title>VALORANT Map Veto - Live Glass Edition</title>
     
-    <!-- Fonts: Inter, Rajdhani & Teko for Esport look -->
+    <!-- Fonts: Inter, Rajdhani & Teko for Esports look -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Rajdhani:wght@600;700&family=Teko:wght@600;700&display=swap" rel="stylesheet">
@@ -101,21 +101,17 @@
             100% { box-shadow: 0 0 35px rgba(255, 70, 85, 0.8); border-color: rgba(255, 70, 85, 0.9); }
         }
 
-        .custom-scrollbar::-webkit-scrollbar {
-            height: 6px;
-            width: 6px;
+        /* Toast notifications */
+        .toast-notification {
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.5);
-            border-radius: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 70, 85, 0.5);
-            border-radius: 8px;
+        @keyframes slideUp {
+            from { transform: translateY(100%) scale(0.9); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between selection:bg-valRed selection:text-white">
+<body class="min-h-screen flex flex-col justify-between selection:bg-valRed selection:text-white relative">
 
     <header class="sticky top-0 z-40 p-4">
         <div class="max-w-7xl mx-auto glass-panel rounded-3xl px-4 sm:px-8 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -144,7 +140,7 @@
                     <span class="w-2 h-2 rounded-full bg-valRed animate-pulse" id="roleDot"></span>
                     <span id="roleText">Role: Tým 1 (A)</span>
                 </div>
-                <button onclick="copyRoomLink()" class="px-4 py-2 bg-slate-800/80 hover:bg-valRed text-white rounded-xl border border-white/10 transition text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                <button onclick="shareRoomModal()" class="px-4 py-2 bg-slate-800/80 hover:bg-valRed text-white rounded-xl border border-white/10 transition text-xs font-semibold flex items-center gap-1.5 shadow-md">
                     <i data-lucide="share-2" class="w-4 h-4 text-valRed"></i> SDÍLET ODKAZ
                 </button>
                 <button onclick="leaveRoom()" class="p-2 bg-slate-800/80 hover:bg-rose-950 text-slate-300 hover:text-rose-300 rounded-xl border border-white/10 transition text-xs" title="Opustit Místnost">
@@ -156,7 +152,7 @@
 
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-8 py-4 space-y-6">
 
-        <!-- Lobby / Join Room View (Default Visible if no Room joined) -->
+        <!-- Lobby / Join Room View -->
         <div id="lobbyScreen" class="glass-panel rounded-3xl p-8 max-w-xl mx-auto my-12 text-center space-y-6 animate-in fade-in duration-300">
             <div class="w-16 h-16 bg-valRed/20 text-valRed rounded-3xl mx-auto flex items-center justify-center border border-valRed/40 shadow-xl shadow-valRed/20">
                 <i data-lucide="swords" class="w-8 h-8"></i>
@@ -192,22 +188,21 @@
 
                 <div id="teamNameFields" class="grid grid-cols-2 gap-3 pt-2">
                     <div>
-                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Týmu A</label>
+                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Vašeho Týmu (A)</label>
                         <input type="text" id="inputTeamAName" value="Tým A" class="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
                     </div>
                     <div>
-                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Týmu B</label>
+                        <label class="block text-[11px] font-mono text-slate-400 mb-1">Název Soupeře (B)</label>
                         <input type="text" id="inputTeamBName" value="Tým B" class="w-full bg-slate-950/80 border border-white/10 rounded-xl px-3 py-2 text-xs text-white">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Format Zápasu (Zamčeno)</label>
+                    <label class="block text-xs font-mono uppercase text-slate-400 mb-1.5">Format Zápasu</label>
                     <div class="w-full bg-slate-950/80 border border-white/15 rounded-2xl px-4 py-3 text-xs text-amber-400 font-mono flex items-center justify-between">
                         <span class="flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 text-amber-400"></i> Best of 1 &bull; 6x Ban, 1x Decider</span>
                         <span class="text-[10px] text-slate-500 bg-slate-900 px-2 py-0.5 rounded border border-white/5">ZAMČENO</span>
                     </div>
-                    <input type="hidden" id="selectFormat" value="BO1">
                 </div>
             </div>
 
@@ -216,7 +211,7 @@
             </button>
         </div>
 
-        <!-- Live Veto Interface (Hidden until room is active) -->
+        <!-- Live Veto Interface -->
         <div id="vetoScreen" class="hidden space-y-6 animate-in fade-in duration-300">
             
             <!-- Teams Banner & Turn Indicator -->
@@ -245,7 +240,7 @@
                         NAČÍTÁNÍ VETO...
                     </div>
                     <div id="turnSubStatus" class="text-xs text-slate-400 font-mono mt-0.5">
-                        Probíhá synchronizace se serverem
+                        Probíhá synchronizace
                     </div>
                 </div>
 
@@ -269,20 +264,20 @@
             <div>
                 <div class="flex items-center justify-between mb-3 px-1">
                     <h3 class="text-xs font-mono uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                        <i data-lucide="map" class="w-4 h-4 text-valRed"></i> MAP POOL PRO TURNAN (KLIKNĚTE PRO BAN / PICK)
+                        <i data-lucide="map" class="w-4 h-4 text-valRed"></i> MAP POOL PRO TURNAN (KLIKNĚTE PRO BAN)
                     </h3>
                     <span id="mapPoolCount" class="text-xs font-mono text-slate-400">7 Map v Poolu</span>
                 </div>
 
                 <div id="mapGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    <!-- Map cards will be rendered dynamically -->
+                    <!-- Map cards dynamically rendered -->
                 </div>
             </div>
 
-            <!-- Live Veto Activity Log & Results -->
+            <!-- Live Veto Log & Outcome -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                <!-- Live Veto Sequence History -->
+                <!-- History -->
                 <div class="lg:col-span-2 glass-panel rounded-3xl p-5 border border-white/10 space-y-3">
                     <h4 class="text-xs font-mono uppercase tracking-widest text-slate-400 flex items-center gap-2">
                         <i data-lucide="history" class="w-4 h-4 text-valRed"></i> PRŮBĚH VETO (HISTORIE KROKŮ)
@@ -292,18 +287,18 @@
                     </div>
                 </div>
 
-                <!-- Final Map Picked Result -->
+                <!-- Final Outcome -->
                 <div class="glass-panel rounded-3xl p-5 border border-white/10 space-y-3 flex flex-col justify-between">
                     <div>
                         <h4 class="text-xs font-mono uppercase tracking-widest text-amber-400 flex items-center gap-2 font-bold">
-                            <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> VYBRANÉ MAPY
+                            <i data-lucide="trophy" class="w-4 h-4 text-amber-400"></i> VYBRANÁ MAPA
                         </h4>
                         <div id="finalSelectedMaps" class="mt-3 space-y-2 font-mono text-xs">
-                            <div class="text-slate-500 italic">O vybraných mapách se rozhodne po dokončení Veta.</div>
+                            <div class="text-slate-500 italic">O vybrané mapě se rozhodne po dokončení Veta.</div>
                         </div>
                     </div>
 
-                    <button onclick="resetVetoSession()" id="resetBtn" class="w-full py-2 bg-slate-800 hover:bg-valRed text-slate-300 hover:text-white rounded-xl border border-white/10 text-xs font-semibold transition mt-4 hidden">
+                    <button onclick="resetVetoSession()" id="resetBtn" class="w-full py-2.5 bg-slate-800 hover:bg-valRed text-slate-300 hover:text-white rounded-xl border border-white/10 text-xs font-semibold transition mt-4 hidden">
                         RESTARTOVAT VETO
                     </button>
                 </div>
@@ -314,28 +309,44 @@
 
     </main>
 
+    <!-- Glass Share Modal -->
+    <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel rounded-3xl p-6 max-w-md w-full space-y-4 text-center border border-white/15">
+            <div class="w-12 h-12 rounded-2xl bg-valRed/20 text-valRed flex items-center justify-center mx-auto border border-valRed/40">
+                <i data-lucide="share-2" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-xl font-valorant tracking-wider text-white">POZVÁNKA PRO SOUPERA</h3>
+            <p class="text-xs text-slate-400 font-sans">Pošlete tento odkaz druhému týmu. Po otevření odkazu se automaticky připojí jako <strong>Tým 2 (B)</strong>.</p>
+
+            <div class="bg-slate-950/90 border border-white/10 rounded-2xl p-3 text-left space-y-1">
+                <span class="text-[10px] font-mono uppercase text-slate-500 block">Odkaz do Místnosti:</span>
+                <input type="text" id="shareLinkInput" readonly class="w-full bg-transparent text-xs text-emerald-400 font-mono focus:outline-none select-all">
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="copyShareLinkInput()" class="flex-1 py-3 bg-valRed hover:bg-rose-600 text-white font-valorant text-lg tracking-wider rounded-xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="copy" class="w-4 h-4"></i> ZKOPÍROVAT ODKAZ
+                </button>
+                <button onclick="closeShareModal()" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold">
+                    ZAVŘÍT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none"></div>
+
     <footer class="mt-8 py-6 text-center text-xs text-slate-500 font-sans border-t border-white/5">
-        <p>VALORANT Realtime Map Veto &bull; Powered by Firebase Firestore & Valorant API</p>
+        <p>VALORANT Realtime Map Veto &bull; Multi-tab Sync & Firebase Live Engine</p>
     </footer>
 
-    <!-- Firebase Module Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // =========================================================================
-        // PRO FUNKČNOST MEZI 2 RŮZNÝMI LIDI NA GITHUB PAGES VLOŽTE SŮJ FIREBASE KLÍČ
-        // ZÍSKÁTE ZDARMA NA: https://console.firebase.google.com
-        // =========================================================================
-        const MY_CUSTOM_FIREBASE_CONFIG = {
-            // apiKey: "VASE_API_KEY",
-            // authDomain: "VAS-PROJEKT.firebaseapp.com",
-            // projectId: "VAS-PROJEKT",
-            // storageBucket: "VAS-PROJEKT.appspot.com",
-            // messagingSenderId: "123456789",
-            // appId: "1:123456789:web:abcdef"
-        };
+        const MY_CUSTOM_FIREBASE_CONFIG = {};
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'valorant-veto-app';
         let firebaseConfig = null;
@@ -346,7 +357,6 @@
             firebaseConfig = MY_CUSTOM_FIREBASE_CONFIG;
         }
 
-        // Fallback Firebase Config for testing
         if (!firebaseConfig) {
             firebaseConfig = {
                 apiKey: "AIzaSyDemoKeyForValorantVetoApp123456",
@@ -367,41 +377,62 @@
             console.warn("Firebase Init fallback:", e);
         }
 
-        // Expose Firebase tools to global window
         window.vetoFirebase = {
             db, auth, appId, doc, getDoc, setDoc, updateDoc, onSnapshot,
             signIn: async () => {
                 if (!auth) return null;
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-                return auth.currentUser;
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    return auth.currentUser;
+                } catch(e) { return null; }
             }
         };
     </script>
 
-    <!-- Main Logic Script -->
     <script>
-        // Default Valorant Active Map Pool
         const DEFAULT_MAPS = [
-            { name: 'Ascent', displayName: 'Ascent' },
-            { name: 'Bind', displayName: 'Bind' },
-            { name: 'Haven', displayName: 'Haven' },
-            { name: 'Lotus', displayName: 'Lotus' },
-            { name: 'Sunset', displayName: 'Sunset' },
-            { name: 'Abyss', displayName: 'Abyss' },
-            { name: 'Split', displayName: 'Split' }
+            { name: 'Ascent' },
+            { name: 'Bind' },
+            { name: 'Haven' },
+            { name: 'Lotus' },
+            { name: 'Sunset' },
+            { name: 'Abyss' },
+            { name: 'Split' }
         ];
 
         let valorantMapImages = {};
         let currentRoomId = null;
-        let myRole = 'teamA'; // Default selection upon launch
+        let myRole = 'teamA';
         let roomUnsubscribe = null;
         let roomData = null;
+        let roomChannel = null; // BroadcastChannel for instantaneous local tab sync
 
-        // Audio Effects Synthesizer (Web Audio API)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification px-4 py-2.5 rounded-2xl border text-xs font-mono font-semibold shadow-xl flex items-center gap-2 pointer-events-auto bg-slate-900/90 text-white border-white/20`;
+
+            if (type === 'success') toast.classList.add('border-emerald-500/50', 'text-emerald-300');
+            if (type === 'warn') toast.classList.add('border-amber-500/50', 'text-amber-300');
+
+            toast.innerHTML = `<i data-lucide="info" class="w-4 h-4 text-valRed"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            if (window.lucide) lucide.createIcons();
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                toast.style.transition = 'all 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
         function playSound(type) {
             try {
                 const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -418,19 +449,10 @@
                     gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.25);
                     osc.start();
                     osc.stop(ctx.currentTime + 0.25);
-                } else if (type === 'pick') {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(440, ctx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
-                    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-                    gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-                    osc.start();
-                    osc.stop(ctx.currentTime + 0.3);
                 }
             } catch(e) {}
         }
 
-        // Fetch Official Valorant Map Assets from API
         async function fetchMapAssets() {
             try {
                 const res = await fetch('https://valorant-api.com/v1/maps');
@@ -442,9 +464,7 @@
                         }
                     });
                 }
-            } catch(e) {
-                console.warn("Map API error, using placeholders.", e);
-            }
+            } catch(e) {}
         }
 
         function getMapImage(mapName) {
@@ -466,138 +486,151 @@
             }
         }
 
+        // BroadcastChannel & LocalStorage listener for multi-tab support
+        function listenToLocalTabSync() {
+            if (roomChannel) {
+                try { roomChannel.close(); } catch(e){}
+            }
+            try {
+                roomChannel = new BroadcastChannel(`valorant_veto_${currentRoomId}`);
+                roomChannel.onmessage = (event) => {
+                    if (event.data && event.data.roomId === currentRoomId) {
+                        roomData = event.data;
+                        renderVetoState();
+                    }
+                };
+            } catch(e) {}
+        }
+
+        function saveAndBroadcastRoomData() {
+            if (!roomData || !currentRoomId) return;
+            try {
+                localStorage.setItem(`valorant_veto_${currentRoomId}`, JSON.stringify(roomData));
+                if (roomChannel) {
+                    roomChannel.postMessage(roomData);
+                }
+            } catch(e) {}
+        }
+
         async function connectToVetoRoom() {
             const rawRoomInput = document.getElementById('inputRoomId').value;
             const roomInput = rawRoomInput.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
             if (!roomInput) {
-                alert('Prosím zadejte platný kód místnosti.');
+                showToast('Prosím zadejte platný kód místnosti.', 'warn');
                 return;
             }
 
             currentRoomId = roomInput;
-
-            // Update UI Header
             document.getElementById('roomCodeDisplay').innerText = `KÓD: ${currentRoomId}`;
             updateRoleBadge();
 
-            // Clear previous subscription if exists
+            listenToLocalTabSync();
+
             if (roomUnsubscribe) {
                 roomUnsubscribe();
                 roomUnsubscribe = null;
             }
 
-            // Firebase Auth and Firestore Connection
-            try {
-                const user = await window.vetoFirebase.signIn();
-                if (!user || !window.vetoFirebase.db) {
-                    initLocalRoomFallback();
-                    return;
-                }
+            const teamAName = document.getElementById('inputTeamAName').value.trim() || 'Tým A';
+            const teamBName = document.getElementById('inputTeamBName').value.trim() || 'Tým B';
 
-                const docRef = window.vetoFirebase.doc(
-                    window.vetoFirebase.db, 
-                    'artifacts', 
-                    window.vetoFirebase.appId, 
-                    'public', 
-                    'data', 
-                    'mapVetoRooms', 
-                    currentRoomId
-                );
-
-                const snap = await window.vetoFirebase.getDoc(docRef);
-
-                const teamAName = document.getElementById('inputTeamAName').value.trim() || 'Tým A';
-                const teamBName = document.getElementById('inputTeamBName').value.trim() || 'Tým B';
-                const format = document.getElementById('selectFormat').value || 'BO1';
-
-                if (!snap.exists()) {
-                    // Create New Room
-                    const newRoomData = {
-                        roomId: currentRoomId,
-                        teamA: { 
-                            name: teamAName, 
-                            connected: myRole === 'teamA' 
-                        },
-                        teamB: { 
-                            name: teamBName, 
-                            connected: myRole === 'teamB' 
-                        },
-                        format: format,
-                        mapPool: DEFAULT_MAPS.map(m => m.name),
-                        history: [],
-                        bannedMaps: [],
-                        pickedMaps: [],
-                        deciderMap: null,
-                        status: 'in_progress',
-                        currentStepIndex: 0
-                    };
-                    await window.vetoFirebase.setDoc(docRef, newRoomData);
-                    roomData = newRoomData;
-                } else {
-                    // Fetch existing room & update current team status
-                    roomData = snap.data();
-                    const updates = {};
-
-                    if (myRole === 'teamA') {
-                        updates['teamA.connected'] = true;
-                        if (teamAName && teamAName !== 'Tým A') updates['teamA.name'] = teamAName;
-                        if (roomData.teamA) roomData.teamA.connected = true;
-                    } else if (myRole === 'teamB') {
-                        updates['teamB.connected'] = true;
-                        if (teamBName && teamBName !== 'Tým B') updates['teamB.name'] = teamBName;
-                        if (roomData.teamB) roomData.teamB.connected = true;
-                    }
-
-                    if (Object.keys(updates).length > 0) {
-                        await window.vetoFirebase.updateDoc(docRef, updates);
-                    }
-                }
-
-                // Subscribe to real-time updates
-                roomUnsubscribe = window.vetoFirebase.onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        roomData = docSnap.data();
-                        renderVetoState();
-                    }
-                }, (err) => {
-                    console.warn("Firestore Listener warning:", err);
-                    initLocalRoomFallback();
-                });
-
-            } catch(e) {
-                console.warn("Firestore connection warning, switching to local state:", e);
-                initLocalRoomFallback();
+            // Check if local room state exists in this browser session first
+            const localStored = localStorage.getItem(`valorant_veto_${currentRoomId}`);
+            if (localStored) {
+                try { roomData = JSON.parse(localStored); } catch(e){}
             }
 
-            document.getElementById('lobbyScreen').classList.add('hidden');
-            document.getElementById('vetoScreen').classList.remove('hidden');
-            renderVetoState();
-        }
-
-        // Fallback for local preview
-        function initLocalRoomFallback() {
             if (!roomData || roomData.roomId !== currentRoomId) {
                 roomData = {
                     roomId: currentRoomId,
                     teamA: { 
-                        name: document.getElementById('inputTeamAName').value || 'Tým A', 
+                        name: teamAName, 
                         connected: myRole === 'teamA' 
                     },
                     teamB: { 
-                        name: document.getElementById('inputTeamBName').value || 'Tým B', 
+                        name: teamBName, 
                         connected: myRole === 'teamB' 
                     },
-                    format: document.getElementById('selectFormat').value || 'BO1',
+                    format: 'BO1',
                     mapPool: DEFAULT_MAPS.map(m => m.name),
                     history: [],
                     bannedMaps: [],
                     pickedMaps: [],
                     deciderMap: null,
-                    status: 'in_progress',
-                    currentStepIndex: 0
+                    status: 'in_progress'
                 };
+            } else {
+                // Update current user role connection
+                if (myRole === 'teamA') {
+                    roomData.teamA.connected = true;
+                    if (teamAName && teamAName !== 'Tým A') roomData.teamA.name = teamAName;
+                } else if (myRole === 'teamB') {
+                    roomData.teamB.connected = true;
+                    if (teamBName && teamBName !== 'Tým B') roomData.teamB.name = teamBName;
+                }
             }
+
+            saveAndBroadcastRoomData();
+
+            // Connect to Cloud Firestore
+            try {
+                const user = await window.vetoFirebase.signIn();
+                if (user && window.vetoFirebase.db) {
+                    const docRef = window.vetoFirebase.doc(
+                        window.vetoFirebase.db, 
+                        'artifacts', 
+                        window.vetoFirebase.appId, 
+                        'public', 
+                        'data', 
+                        'mapVetoRooms', 
+                        currentRoomId
+                    );
+
+                    const snap = await window.vetoFirebase.getDoc(docRef);
+
+                    if (!snap.exists()) {
+                        await window.vetoFirebase.setDoc(docRef, roomData);
+                    } else {
+                        const existing = snap.data();
+                        const updates = {};
+
+                        if (myRole === 'teamA') {
+                            updates['teamA.connected'] = true;
+                            if (teamAName && teamAName !== 'Tým A') updates['teamA.name'] = teamAName;
+                            roomData.teamA.connected = true;
+                        } else if (myRole === 'teamB') {
+                            updates['teamB.connected'] = true;
+                            if (teamBName && teamBName !== 'Tým B') updates['teamB.name'] = teamBName;
+                            roomData.teamB.connected = true;
+                        }
+
+                        // Sync connected state from cloud if existing team A/B was already connected
+                        if (existing.teamA && existing.teamA.connected) roomData.teamA.connected = true;
+                        if (existing.teamB && existing.teamB.connected) roomData.teamB.connected = true;
+
+                        if (Object.keys(updates).length > 0) {
+                            await window.vetoFirebase.updateDoc(docRef, updates);
+                        }
+                    }
+
+                    saveAndBroadcastRoomData();
+
+                    // Listen to Firestore changes
+                    roomUnsubscribe = window.vetoFirebase.onSnapshot(docRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const cloudData = docSnap.data();
+                            roomData = cloudData;
+                            saveAndBroadcastRoomData();
+                            renderVetoState();
+                        }
+                    }, (err) => {});
+                }
+            } catch(e) {}
+
+            document.getElementById('lobbyScreen').classList.add('hidden');
+            document.getElementById('vetoScreen').classList.remove('hidden');
             renderVetoState();
+            showToast(`Připojeno do místnosti ${currentRoomId}`, 'success');
         }
 
         function updateRoleBadge() {
@@ -616,11 +649,11 @@
                 roleText.innerText = 'Role: Tým 2 (B)';
             } else {
                 roleDot.className = 'w-2 h-2 rounded-full bg-amber-400';
-                roleText.innerText = 'Role: Divák / Caster';
+                roleText.innerText = 'Role: Divák';
             }
         }
 
-        function getVetoSequence(format) {
+        function getVetoSequence() {
             return [
                 { team: 'teamA', action: 'ban', label: 'BAN (Tým A)' },
                 { team: 'teamB', action: 'ban', label: 'BAN (Tým B)' },
@@ -634,12 +667,9 @@
         function renderVetoState() {
             if (!roomData) return;
 
-            // Teams info
             document.getElementById('displayTeamAName').innerText = roomData.teamA ? roomData.teamA.name : 'Tým A';
             document.getElementById('displayTeamBName').innerText = roomData.teamB ? roomData.teamB.name : 'Tým B';
-            document.getElementById('formatBadge').innerText = 'FORMAT: 1x DECIDER';
 
-            // Connection dots
             const isTeamAConnected = roomData.teamA && roomData.teamA.connected;
             const isTeamBConnected = roomData.teamB && roomData.teamB.connected;
 
@@ -651,7 +681,7 @@
                 ? `<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Připojen`
                 : `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Čekání na připojení`;
 
-            const sequence = getVetoSequence(roomData.format);
+            const sequence = getVetoSequence();
             const stepIdx = roomData.history ? roomData.history.length : 0;
 
             const bannerA = document.getElementById('bannerTeamA');
@@ -665,9 +695,8 @@
             if (stepIdx < sequence.length) {
                 currentTurnInfo = sequence[stepIdx];
                 const activeTeamName = currentTurnInfo.team === 'teamA' ? (roomData.teamA ? roomData.teamA.name : 'Tým A') : (roomData.teamB ? roomData.teamB.name : 'Tým B');
-                const actionText = currentTurnInfo.action === 'ban' ? 'ZAKAZUJE (BAN)' : 'VYBÍRÁ (PICK)';
                 
-                document.getElementById('turnMainStatus').innerText = `${activeTeamName} ${actionText}`;
+                document.getElementById('turnMainStatus').innerText = `${activeTeamName} ZAKAZUJE (BAN)`;
                 document.getElementById('turnSubStatus').innerText = `Krok ${stepIdx + 1} z ${sequence.length}`;
 
                 if (currentTurnInfo.team === 'teamA') {
@@ -680,19 +709,13 @@
                     isMyTurn = true;
                 }
             } else {
-                // Veto complete
                 document.getElementById('turnMainStatus').innerText = 'VETO DOKONČENO!';
                 document.getElementById('turnSubStatus').innerText = 'Všechny bany byly uplatněny.';
                 document.getElementById('resetBtn').classList.remove('hidden');
             }
 
-            // Render Map Cards
             renderMapGrid(isMyTurn, currentTurnInfo);
-
-            // Render History
             renderHistoryLog();
-
-            // Render Results
             renderFinalOutcome();
         }
 
@@ -785,14 +808,12 @@
             let picked = [...(roomData.pickedMaps || [])];
 
             if (actionType === 'ban') banned.push(mapName);
-            if (actionType === 'pick') picked.push(mapName);
 
-            // Check if only 1 map remains -> Decider
-            const sequence = getVetoSequence(roomData.format);
+            const sequence = getVetoSequence();
             let decider = roomData.deciderMap;
 
             if (newHistory.length >= sequence.length) {
-                const remaining = roomData.mapPool.filter(m => !banned.includes(m) && !picked.includes(m));
+                const remaining = roomData.mapPool.filter(m => !banned.includes(m));
                 if (remaining.length === 1) {
                     decider = remaining[0];
                 }
@@ -805,11 +826,10 @@
                 deciderMap: decider
             };
 
-            // Instant local render so clicking is 100% responsive
             Object.assign(roomData, updatedData);
+            saveAndBroadcastRoomData();
             renderVetoState();
 
-            // Push to Firestore in background
             try {
                 if (window.vetoFirebase && window.vetoFirebase.db) {
                     const docRef = window.vetoFirebase.doc(
@@ -823,9 +843,7 @@
                     );
                     await window.vetoFirebase.updateDoc(docRef, updatedData);
                 }
-            } catch(e) {
-                console.warn("Background sync warning:", e);
-            }
+            } catch(e) {}
         }
 
         function renderHistoryLog() {
@@ -836,13 +854,8 @@
             }
 
             list.innerHTML = roomData.history.map(item => {
-                const isBan = item.action === 'ban';
-                const bg = isBan 
-                    ? 'bg-rose-950/60 text-rose-300 border-rose-500/30' 
-                    : 'bg-emerald-950/60 text-emerald-300 border-emerald-500/30';
-
                 return `
-                    <div class="px-3 py-1.5 rounded-xl border ${bg} flex items-center gap-1.5">
+                    <div class="px-3 py-1.5 rounded-xl border bg-rose-950/60 text-rose-300 border-rose-500/30 flex items-center gap-1.5">
                         <span class="font-bold">${item.step}. ${item.teamName}:</span>
                         <span class="uppercase">${item.action}</span>
                         <strong class="text-white">${item.map}</strong>
@@ -872,14 +885,16 @@
         }
 
         async function resetVetoSession() {
-            if (!confirm('Opravdu chcete restartovat veto místnost?')) return;
-            
             const updatedData = {
                 history: [],
                 bannedMaps: [],
                 pickedMaps: [],
                 deciderMap: null
             };
+
+            Object.assign(roomData, updatedData);
+            saveAndBroadcastRoomData();
+            renderVetoState();
 
             try {
                 if (window.vetoFirebase && window.vetoFirebase.db) {
@@ -893,30 +908,30 @@
                         currentRoomId
                     );
                     await window.vetoFirebase.updateDoc(docRef, updatedData);
-                } else {
-                    Object.assign(roomData, updatedData);
-                    renderVetoState();
                 }
-            } catch(e) {
-                Object.assign(roomData, updatedData);
-                renderVetoState();
-            }
+            } catch(e) {}
+
+            showToast('Místnost byla restartována', 'info');
         }
 
-        function copyRoomLink() {
+        function shareRoomModal() {
             const code = currentRoomId || document.getElementById('inputRoomId').value.trim().toUpperCase() || 'FINALS2026';
-            // Generate link specifically set for Team 2 (B) so opponent can join in 1 click
-            const targetRole = myRole === 'teamA' ? 'teamB' : 'spectator';
-            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${code}&role=${targetRole}`;
+            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${code}&role=teamB`;
             
-            const tempInput = document.createElement('input');
-            tempInput.value = shareUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
+            document.getElementById('shareLinkInput').value = shareUrl;
+            document.getElementById('shareModal').classList.remove('hidden');
+        }
 
-            alert(`Odkaz na místnost (${code}) byl zkopírován do schránky!\n\nPošli ho soupeři.`);
+        function closeShareModal() {
+            document.getElementById('shareModal').classList.add('hidden');
+        }
+
+        function copyShareLinkInput() {
+            const input = document.getElementById('shareLinkInput');
+            input.select();
+            document.execCommand('copy');
+            showToast('Odkaz zkopírován do schránky!', 'success');
+            closeShareModal();
         }
 
         function leaveRoom() {
@@ -924,12 +939,15 @@
                 roomUnsubscribe();
                 roomUnsubscribe = null;
             }
+            if (roomChannel) {
+                try { roomChannel.close(); } catch(e){}
+                roomChannel = null;
+            }
             currentRoomId = null;
             document.getElementById('vetoScreen').classList.add('hidden');
             document.getElementById('lobbyScreen').classList.remove('hidden');
         }
 
-        // Auto load room from URL query parameter ?room=XYZ&role=teamB
         window.onload = function() {
             fetchMapAssets();
             const urlParams = new URLSearchParams(window.location.search);
